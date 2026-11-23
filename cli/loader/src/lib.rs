@@ -911,7 +911,11 @@ impl Loader {
             if output.status.success() {
                 let mut found_non_static = false;
                 for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    if line.contains(" T ") {
+                    // ELFv1 function descriptors are data symbols on big-endian PowerPC64.
+                    if line.contains(" T ")
+                        || (cfg!(all(target_arch = "powerpc64", target_endian = "big"))
+                            && line.contains(" D "))
+                    {
                         if let Some(function_name) =
                             line.split_whitespace().collect::<Vec<_>>().get(2)
                         {

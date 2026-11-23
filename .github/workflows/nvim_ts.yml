@@ -13,21 +13,26 @@ concurrency:
 
 jobs:
   check_compilation:
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         type: [generate, build]
-    name: ${{ matrix.os }} - ${{ matrix.type }}
-    runs-on: ${{ matrix.os }}
+        include:
+          # Use Intel's larger memory budget for full parser generation.
+          - os: macos-latest
+            type: generate
+            runner: macos-15-intel
+    name: ${{ matrix.runner || matrix.os }} - ${{ matrix.type }}
+    runs-on: ${{ matrix.runner || matrix.os }}
     env:
       NVIM: ${{ matrix.os == 'windows-latest' && 'nvim-win64\\bin\\nvim.exe' || 'nvim' }}
       NVIM_TS_DIR: nvim-treesitter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: nvim-treesitter/nvim-treesitter
           path: ${{ env.NVIM_TS_DIR }}
@@ -39,9 +44,9 @@ jobs:
       - if: runner.os == 'Windows'
         run: echo ${{ github.workspace }}/target/release >> $env:GITHUB_PATH
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
       - run: cargo build --release
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Install and prepare Neovim
         run: bash ./scripts/ci-install.sh
@@ -49,7 +54,7 @@ jobs:
 
       - if: matrix.type == 'generate'
         name: Generate and compile parsers
-        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=2
+        run: $NVIM -l ./scripts/install-parsers.lua --generate --max-jobs=${{ runner.os == 'Windows' && 4 || 2 }}
         working-directory: ${{ env.NVIM_TS_DIR }}
         shell: bash
 

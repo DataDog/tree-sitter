@@ -45,7 +45,7 @@ jobs:
           - { platform: windows-x64       , target: x86_64-pc-windows-msvc      , os: windows-latest   , features: wasm  }
           - { platform: windows-x86       , target: i686-pc-windows-msvc        , os: windows-latest                     }
           - { platform: macos-arm64       , target: aarch64-apple-darwin        , os: macos-latest     , features: wasm  }
-          - { platform: macos-x64         , target: x86_64-apple-darwin         , os: macos-13         , features: wasm  }
+          - { platform: macos-x64         , target: x86_64-apple-darwin         , os: macos-15-intel   , features: wasm  }
 
           # Cross compilers for C library
           - { platform: linux-arm64       , cc: aarch64-linux-gnu-gcc           , ar: aarch64-linux-gnu-ar   }
@@ -70,19 +70,19 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Read Emscripten version
       run: printf 'EMSCRIPTEN_VERSION=%s\n' "$(<cli/loader/emscripten-version)" >> $GITHUB_ENV
 
     - name: Install Emscripten
       if: ${{ !matrix.no-run && !matrix.use-cross }}
-      uses: mymindstorm/setup-emsdk@v14
+      uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
       with:
         version: ${{ env.EMSCRIPTEN_VERSION }}
 
     - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
       with:
         target: ${{ matrix.target }}
 
@@ -239,7 +239,7 @@ jobs:
       run: $BUILD_CMD bench benchmark -p tree-sitter-cli --target=${{ matrix.target }}
 
     - name: Upload CLI artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: tree-sitter.${{ matrix.platform }}
         path: target/${{ matrix.target }}/release/tree-sitter${{ env.SUFFIX }}
@@ -248,7 +248,7 @@ jobs:
 
     - name: Upload Wasm artifacts
       if: ${{ matrix.platform == 'linux-x64' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: tree-sitter.wasm
         path: |

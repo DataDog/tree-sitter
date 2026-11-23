@@ -194,7 +194,7 @@ typedef struct {
 typedef struct {
   uint32_t id;
   uint32_t capture_list_id;
-  uint16_t start_depth;
+  uint32_t start_depth;
   uint16_t step_index;
   uint16_t pattern_index;
   uint16_t consumed_capture_count: 12;
@@ -3038,7 +3038,7 @@ bool ts_query__step_is_fallible(
   const TSQuery *self,
   uint16_t step_index
 ) {
-  ts_assert((uint32_t)step_index + 1 < self->steps.size);
+  if ((uint32_t)step_index + 1 >= self->steps.size) return false;
   QueryStep *step = array_get(&self->steps, step_index);
   QueryStep *next_step = array_get(&self->steps, step_index + 1);
   return (
@@ -3835,6 +3835,10 @@ static inline bool ts_query_cursor__advance(
           QueryStep *step = array_get(&self->query->steps, state->step_index);
           state->has_in_progress_alternatives = false;
           copy_count = 0;
+
+          // Completed states can remain in progress while searching for longer matches.
+          // Their sentinel depth must not be treated as a depth to match in the tree.
+          if (step->depth == PATTERN_DONE_MARKER) continue;
 
           // Check that the node matches all of the criteria for the next
           // step of the pattern.

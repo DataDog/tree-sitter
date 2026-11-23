@@ -3468,6 +3468,76 @@ fn test_query_captures_with_many_nested_results_with_fields() {
 }
 
 #[test]
+fn test_query_matches_and_captures_in_very_deep_trees() {
+    allocations::record(|| {
+        let language = get_language("json");
+        let mut parser = Parser::new();
+        parser.set_language(&language).unwrap();
+
+        let number_query = Query::new(&language, "(number) @number").unwrap();
+        let deferred_query =
+            Query::new(&language, "((number) @first (array)? (number)? @last)").unwrap();
+
+        for depth in [
+            2,
+            u16::MAX as usize - 1,
+            u16::MAX as usize,
+            u16::MAX as usize + 1,
+        ] {
+            let source = format!("[0,{}1,2{},3]", "[".repeat(depth), "]".repeat(depth));
+            let tree = parser.parse(&source, None).unwrap();
+            assert!(!tree.root_node().has_error());
+            let mut cursor = QueryCursor::new();
+
+            // Matches that start beyond u16::MAX must retain their full start depth.
+            let matches = cursor.matches(&number_query, tree.root_node(), source.as_bytes());
+            assert_eq!(
+                collect_matches(matches, &number_query, &source),
+                vec![
+                    (0, vec![("number", "0")]),
+                    (0, vec![("number", "1")]),
+                    (0, vec![("number", "2")]),
+                    (0, vec![("number", "3")]),
+                ],
+                "depth: {depth}",
+            );
+            assert!(!cursor.did_exceed_match_limit());
+
+            // The match starting at `0` reaches PATTERN_DONE_MARKER but is deferred
+            // while searching for a longer match ending at `3`. It must not try to
+            // match the done marker against a descendant at depth start + 0xFFFF.
+            let matches = cursor.matches(&deferred_query, tree.root_node(), source.as_bytes());
+            assert_eq!(
+                collect_matches(matches, &deferred_query, &source),
+                vec![
+                    (0, vec![("first", "1"), ("last", "2")]),
+                    (0, vec![("first", "2")]),
+                    (0, vec![("first", "0"), ("last", "3")]),
+                    (0, vec![("first", "3")]),
+                ],
+                "depth: {depth}",
+            );
+            assert!(!cursor.did_exceed_match_limit());
+
+            let captures = cursor.captures(&deferred_query, tree.root_node(), source.as_bytes());
+            assert_eq!(
+                collect_captures(captures, &deferred_query, &source),
+                vec![
+                    ("first", "0"),
+                    ("first", "1"),
+                    ("last", "2"),
+                    ("first", "2"),
+                    ("last", "3"),
+                    ("first", "3"),
+                ],
+                "depth: {depth}",
+            );
+            assert!(!cursor.did_exceed_match_limit());
+        }
+    });
+}
+
+#[test]
 fn test_query_captures_with_too_many_nested_results() {
     allocations::record(|| {
         let language = get_language("javascript");
